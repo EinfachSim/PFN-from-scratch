@@ -46,8 +46,8 @@ HOW THIS COULD BE BETTER: How to choose optimal contexts? They are permutation-e
 ## Installation
 
 ```bash
-git clone https://github.com/EinfachSim/pfn
-cd pfn
+git clone https://github.com/EinfachSim/pfn-from-scratch
+cd pfn-from-scratch
 pip install -r requirements.txt
 ```
 
