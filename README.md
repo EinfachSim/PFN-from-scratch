@@ -167,7 +167,7 @@ pfn/
 
 The training objective is the **posterior predictive log-likelihood**:
 
-$L(\theta) = E_{f~prior, D~f} [ -log p_\theta(y* | x*, D_{context}) ]$
+$$L(\theta) = E_{f~prior, D~f} [ -log p_\theta(y* | x*, D_{context})]$$
 
 For each training step:
 1. Sample a random function `f` from the prior (GP or BNN)
