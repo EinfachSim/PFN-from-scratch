@@ -1,0 +1,191 @@
+# Prior-Data Fitted Networks (PFNs)
+
+A clean PyTorch implementation of **"Transformers Can Do Bayesian Inference"**  
+*Müller et al., ICLR 2022* — [[Paper]](https://arxiv.org/abs/2112.10510) [[Original Repo]](https://github.com/automl/TransformersCanDoBayesianInference)
+
+---
+
+## What is a PFN?
+
+A Prior-Data Fitted Network (PFN) is a **Transformer trained to do Bayesian inference in a single forward pass**.
+
+The key insight: if you can sample from a prior distribution over functions (e.g., a GP or BNN), you can train a Transformer on synthetic tasks to *approximate the Bayesian posterior predictive* without MCMC, variational inference, or any test-time optimization.
+
+At inference time, you hand the PFN your context `(X_train, y_train)` and query points `X_test`, and get back a full predictive distribution — in one forward pass.
+
+```
+Context: [(x₁,y₁), (x₂,y₂), ..., (xₙ,yₙ), x*] → Transformer → p(y* | x*, context)
+                                                                         ↑
+                                                            Single forward pass!
+```
+
+---
+
+## Architecture
+
+```
+Input: context tokens [(x_i, y_i)] + query tokens [(x_j, ?)]
+         ↓
+  Linear embedding → d_model
+         ↓
+  Transformer Encoder (full attention over all tokens)
+         ↓
+  Query token outputs → Linear head
+         ↓
+  Output: predictive distribution (Gaussian mean+var or class logits)
+```
+
+The Transformer attends over the full set of tokens (context + queries), making it **permutation-equivariant** — it doesn't care about the order of context points.
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/yourusername/pfn
+cd pfn
+pip install -r requirements.txt
+```
+
+---
+
+## Quick Start
+
+### GP Regression
+
+```python
+import torch
+from pfn import PFN, GPPrior, train_pfn, predict
+
+# 1. Build model and prior
+prior = GPPrior(x_dim=1, kernel="rbf")
+model = PFN(x_dim=1, y_dim=1, d_model=256, n_heads=4, n_layers=6)
+
+# 2. Train (meta-learns Bayesian inference from prior samples)
+train_pfn(model, prior, n_steps=10_000, batch_size=32)
+
+# 3. Inference: single forward pass!
+predictions = predict(
+    model,
+    x_context=X_train,   # numpy (n, 1)
+    y_context=y_train,   # numpy (n, 1)
+    x_query=X_test,      # numpy (m, 1)
+)
+print(predictions["mean"])   # predictive mean
+print(predictions["std"])    # predictive uncertainty
+print(predictions["lower_95"], predictions["upper_95"])  # 95% CI
+```
+
+### Tabular Classification (TabPFN-style)
+
+```python
+from pfn import PFN, BNNPrior, train_pfn, predict
+
+prior = BNNPrior(x_dim=10, y_dim=1, num_classes=5, hidden_dims=[64, 64])
+model = PFN(x_dim=10, y_dim=1, d_model=256, n_heads=4, n_layers=6, num_classes=5)
+
+train_pfn(model, prior, n_steps=20_000)
+
+preds = predict(model, X_train, y_train.reshape(-1,1), X_test)
+print(preds["labels"])  # predicted class labels
+print(preds["probs"])   # class probabilities
+```
+
+---
+
+## Training from Command Line
+
+```bash
+# GP regression (1D input)
+python train_pfn.py --prior gp --x_dim 1 --steps 10000 --output models/gp_pfn.pt
+
+# BNN regression
+python train_pfn.py --prior bnn --x_dim 5 --steps 20000 --output models/bnn_pfn.pt
+
+# Classification (TabPFN-style)
+python train_pfn.py --prior bnn --mode classification --num_classes 10 \
+  --x_dim 30 --d_model 512 --n_layers 12 --steps 100000 \
+  --output models/tabpfn.pt
+```
+
+---
+
+## Demos
+
+```bash
+# PFN vs exact GP comparison (generates plots)
+python examples/demo_gp_regression.py
+
+# TabPFN-style classification on sklearn datasets
+python examples/demo_tabular_classification.py
+```
+
+---
+
+## Repo Structure
+
+```
+pfn/
+├── pfn/
+│   ├── __init__.py
+│   ├── model.py          # PFN Transformer architecture
+│   ├── train.py          # Training loop
+│   ├── inference.py      # Inference utilities + GP comparison
+│   └── priors/
+│       ├── __init__.py
+│       ├── gp_prior.py   # Gaussian Process prior sampler
+│       └── bnn_prior.py  # Bayesian Neural Network prior sampler
+├── examples/
+│   ├── demo_gp_regression.py
+│   └── demo_tabular_classification.py
+├── train_pfn.py          # CLI training script
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Key Design Decisions
+
+| Decision | This Implementation | Paper |
+|----------|-------------------|-------|
+| Transformer type | Encoder-only, full attention | Same |
+| Normalization | Pre-norm (LayerNorm before attention) | Pre-norm |
+| Positional encoding | None (set-valued input, order-invariant) | None |
+| GP prior kernel | RBF or Matérn 5/2 | Multiple kernels |
+| BNN prior architecture | MLP with sampled weights | Same |
+| Context size | Random in [n_min, n_max] per step | Random |
+| Regression output | Gaussian (mean + log-var) | Same |
+
+---
+
+## How Training Works
+
+The training objective is the **posterior predictive log-likelihood**:
+
+```
+L(θ) = E_{f~prior, D~f} [ -log p_θ(y* | x*, D_context) ]
+```
+
+For each training step:
+1. Sample a random function `f` from the prior (GP or BNN)
+2. Sample context points `(x_context, y_context)` and query points `(x_query, y_query)` from `f`
+3. Forward pass: predict `y_query` from context
+4. Compute loss: NLL (regression) or cross-entropy (classification)
+5. Backpropagate
+
+After training, the PFN has **internalized** the prior, and can approximate the Bayesian posterior at test-time with a single forward pass.
+
+---
+
+## Citation
+
+```bibtex
+@inproceedings{muller2022transformers,
+  title={Transformers Can Do {B}ayesian Inference},
+  author={M{\"u}ller, Samuel and Hollmann, Noah and Arango, Sebastian Pineda and Grabocka, Josif and Hutter, Frank},
+  booktitle={International Conference on Learning Representations},
+  year={2022},
+  url={https://openreview.net/forum?id=KSugKcbNf9}
+}
+```
