@@ -168,7 +168,7 @@ pfn/
 The training objective is the **posterior predictive log-likelihood**:
 
 ```
-$L(\theta) = E_{f~prior, D~f} [ -log p_θ(y* | x*, D_context) ]$
+$$L(\theta) = E_{f~prior, D~f} [ -log p_θ(y* | x*, D_context) ]$$
 ```
 
 For each training step:
