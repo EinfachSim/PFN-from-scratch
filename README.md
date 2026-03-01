@@ -184,8 +184,8 @@ After training, the PFN has **internalized** the prior, and can approximate the 
 
 ```bibtex
 @inproceedings{muller2022transformers,
-  title={Transformers Can Do {B}ayesian Inference},
-  author={M{\"u}ller, Samuel and Hollmann, Noah and Arango, Sebastian Pineda and Grabocka, Josif and Hutter, Frank},
+  title={Transformers Can Do Bayesian Inference},
+  author={Müller, Samuel and Hollmann, Noah and Arango, Sebastian Pineda and Grabocka, Josif and Hutter, Frank},
   booktitle={International Conference on Learning Representations},
   year={2022},
   url={https://openreview.net/forum?id=KSugKcbNf9}
