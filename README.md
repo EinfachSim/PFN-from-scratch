@@ -39,6 +39,8 @@ Input: context tokens [(x_i, y_i)] + query tokens [(x_j, ?)]
 
 The Transformer attends over the full set of tokens (context + queries), making it **permutation-equivariant** — it doesn't care about the order of context points.
 
+HOW THIS COULD BE BETTER: How to choose optimal contexts? They are permutation-equivariant, so we could pass the whole dataset but we could possibly make this much more efficient if we learn which context points to pass into the PFN in the first place! This is a meta-(meta)-optimization problem, and it is basically solved by the attention mechanism BUT could be even more efficient.
+
 ---
 
 ## Installation
